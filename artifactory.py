@@ -806,6 +806,31 @@ class _ArtifactoryAccessor(pathlib._Accessor):
         if code != 204:
             raise RuntimeError(text)
 
+    def get_stats(self, pathobj):
+            """
+            Get artifact properties and return them as a dictionary.
+            """
+        url = '/'.join([pathobj.drive,
+                        'api/storage',
+                        str(pathobj.relative_to(pathobj.drive)).strip('/')])
+
+        params = 'stats'
+
+        text, code = self.rest_get(url,
+            params=params,
+            auth=pathobj.auth,
+            verify=pathobj.verify,
+            cert=pathobj.cert)
+
+        if code == 404 and "Unable to find item" in text:
+            raise OSError(2, "No such file or directory: '%s'" % url)
+        if code == 404 and "No properties could be found" in text:
+            return {}
+        if code != 200:
+            raise RuntimeError(text)
+
+        return json.loads(text)
+
 
 _artifactory_accessor = _ArtifactoryAccessor()
 
@@ -1214,6 +1239,12 @@ class ArtifactoryPath(pathlib.Path, PureArtifactoryPath):
                 "Moving between instances is not implemented yet")
 
         self._accessor.move(self, dst)
+
+    def stats(self):
+        """
+        Fetch artifact stats
+        """
+        return self._accessor.get_stats(self)
 
     @property
     def properties(self):
